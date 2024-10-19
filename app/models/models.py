@@ -9,9 +9,11 @@ class CelebVoiceAnalysis(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)                # 사용
     voice_name = Column(String(255), nullable=False)          # 목소리 유형
+    description = Column(Text, nullable=True)                 # 설명 추가
 
     def __repr__(self):
-        return f"<VoiceAnalysis(voice_name={self.voice_name}, f0_mean={self.f0_mean})>"
+        return (f"<VoiceAnalysis(name={self.name}, voice_name={self.voice_name}, "
+                f"description={self.description})>")
 
 class VoiceTypeInfo(Base):
     __tablename__ = 'voice_type_info'

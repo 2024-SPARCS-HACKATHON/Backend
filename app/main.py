@@ -33,8 +33,8 @@ def get_db():
 # FastAPI 라우터 등록
 app.include_router(audio_router, prefix="/audio")
 
-@app.get("/")
-async def first_get(db: Session = Depends(get_db)):
-    # 데이터베이스 쿼리 예시
-    result = db.execute("SELECT 'Hello' AS message").fetchone()
-    return {"message": result["message"]}
+# @app.get("/")
+# async def first_get(db: Session = Depends(get_db)):
+#     # 데이터베이스 쿼리 예시
+#     result = db.execute("SELECT 'Hello' AS message").fetchone()
+#     return {"message": result["message"]}

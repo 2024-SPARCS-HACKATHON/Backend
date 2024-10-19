@@ -59,7 +59,7 @@ def audio_analyze(audio_buffer, input_gender, input_age):
     voice_analysis = analyze_voice_by_conditions(f0_mean, mean_rms, mfcc_mean, predicted_type[0])
 
     # 10. ChatGPT API를 사용해 추가 설명 생성
-    # chatgpt_explanation = get_voice_explanation_from_chatgpt(predicted_type[0], f0_mean, mean_rms, mfcc_mean)
+    chatgpt_explanation = get_voice_explanation_from_chatgpt(predicted_type[0], f0_mean, mean_rms, mfcc_mean)
 
     # 10. DB에서 분석 결과에 해당하는 voice_name과 일치하는 name 조회
     voice_name_from_analysis = voice_analysis["voice_name"]
@@ -69,7 +69,7 @@ def audio_analyze(audio_buffer, input_gender, input_age):
     result = db.execute(query).scalars().all()
 
     # 조회된 name 값들 추출
-    matching_names = [record.name for record in result]
+    matching_names_and_descriptions = [{"name": record.name, "description": record.description} for record in result]
 
     # 11. VoiceTypeInfo 테이블에서 voice_name에 해당하는 solution1, solution2, solution3 조회
     voice_type_query = select(VoiceTypeInfo).where(VoiceTypeInfo.voice_type == voice_name_from_analysis)
@@ -95,9 +95,9 @@ def audio_analyze(audio_buffer, input_gender, input_age):
         "mean_rms": mean_rms,
         "mfcc_1_to_20": mfcc_mean,
         "final_analysis": voice_analysis,
-        "matching_names": matching_names,
+        "matching_names_and_descriptions": matching_names_and_descriptions,
         "solutions": solutions,
-        # "chatgpt_explanation": chatgpt_explanation
+        "chatgpt_explanation": chatgpt_explanation
     }
 
 def analyze_voice_by_conditions(f0_mean, mean_rms, mfcc_mean, predicted_type):
@@ -193,7 +193,7 @@ def get_voice_explanation_from_chatgpt(predicted_type, f0_mean, mean_rms, mfcc_m
     - 음량(RMS): {mean_rms_rounded}
     - MFCC 값: {mfcc_mean_rounded} (MFCC 1~5번만 예시로 제시했습니다).
 
-    과학적 설명은 300 토큰 이내로 작성해주세요.
+    과학적 설명은 100 토큰 이내로 작성해주세요.
     """
 
     response = openai.ChatCompletion.create(
@@ -202,7 +202,7 @@ def get_voice_explanation_from_chatgpt(predicted_type, f0_mean, mean_rms, mfcc_m
             {"role": "system", "content": "당신은 목소리 분석 전문가입니다."},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=1000,
+        max_tokens=500,
         temperature=0.7
     )
 
