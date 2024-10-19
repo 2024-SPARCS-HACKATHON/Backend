@@ -29,3 +29,18 @@ class VoiceTypeInfo(Base):
         return (f"<VoiceTypeInfo(voice_type={self.voice_type}, "
                 f"description={self.description}, solution1={self.solution1}, "
                 f"solution2={self.solution2}, solution3={self.solution3})>")
+
+# 타이틀, 설명, 배경 색상 코드가 포함된 모델 추가
+class VoiceUITheme(Base):
+    __tablename__ = 'voice_ui_theme'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(255), nullable=False)               # 타이틀
+    description = Column(Text, nullable=True)                 # 설명
+    background_color_start = Column(String(7), nullable=False)      # 배경 색상 코드 (예: '#FFFFFF')
+    background_color_end = Column(String(7), nullable=False)      # 배경 색상 코드 (예: '#FFFFFF')
+    title_kor = Column(String(255), nullable=True)            # 한글 타이틀
+
+    def __repr__(self):
+        return (f"<VoiceUITheme(title={self.title}, description={self.description}, "
+                f"background_color_start={self.background_color_start}, background_color_end={self.background_color_end})>")

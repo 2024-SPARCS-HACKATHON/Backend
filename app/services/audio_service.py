@@ -6,9 +6,10 @@ import joblib
 import pandas as pd
 import openai
 
+import httpx
 from ..config.database import db
 from sqlalchemy.future import select
-from app.models.models import CelebVoiceAnalysis, VoiceTypeInfo
+from app.models.models import CelebVoiceAnalysis, VoiceTypeInfo, VoiceUITheme
 
 # 1. 저장된 모델 및 전처리 객체 로드
 loaded_model = joblib.load('voice_type_model.joblib')  # AI 모델 로드
@@ -17,7 +18,7 @@ loaded_gender_encoder = joblib.load('gender_encoder.joblib')
 X_columns = joblib.load('X_columns.joblib')
 type_encoder = joblib.load('type_encoder.joblib')  # 타입 인코더 추가
 
-def audio_analyze(audio_buffer, input_gender, input_age):
+async def audio_analyze(audio_buffer, input_gender, input_age):
     """
     음성 파일 데이터를 분석하여 목소리 유형을 예측하고, 추가 분석을 수행하는 함수.
     """
@@ -59,7 +60,7 @@ def audio_analyze(audio_buffer, input_gender, input_age):
     voice_analysis = analyze_voice_by_conditions(f0_mean, mean_rms, mfcc_mean, predicted_type[0])
 
     # 10. ChatGPT API를 사용해 추가 설명 생성
-    chatgpt_explanation = get_voice_explanation_from_chatgpt(predicted_type[0], f0_mean, mean_rms, mfcc_mean)
+    chatgpt_explanation = await get_voice_explanation_from_chatgpt(predicted_type[0], f0_mean, mean_rms, mfcc_mean)
 
     # 10. DB에서 분석 결과에 해당하는 voice_name과 일치하는 name 조회
     voice_name_from_analysis = voice_analysis["voice_name"]
@@ -89,7 +90,27 @@ def audio_analyze(audio_buffer, input_gender, input_age):
             "solution3": None
         }
 
-    # 10. 분석 결과 반환
+    # 12. VoiceUITheme 테이블에서 title이 voice_name과 같은 레코드 조회
+    ui_theme_query = select(VoiceUITheme).where(VoiceUITheme.title_kor== voice_name_from_analysis)
+    ui_theme_result = db.execute(ui_theme_query).scalars().first()
+
+    # VoiceUITheme이 있으면 title, description, background_color_start, background_color_end 반환
+    if ui_theme_result:
+        ui_theme_data = {
+            "title": ui_theme_result.title,
+            "description": ui_theme_result.description,
+            "background_color_start": ui_theme_result.background_color_start,
+            "background_color_end": ui_theme_result.background_color_end
+        }
+    else:
+        ui_theme_data = {
+            "title": None,
+            "description": None,
+            "background_color_start": None,
+            "background_color_end": None
+        }
+
+    # 13. 분석 결과 반환
     return {
         "f0_mean": f0_mean,
         "mean_rms": mean_rms,
@@ -97,7 +118,8 @@ def audio_analyze(audio_buffer, input_gender, input_age):
         "final_analysis": voice_analysis,
         "matching_names_and_descriptions": matching_names_and_descriptions,
         "solutions": solutions,
-        "chatgpt_explanation": chatgpt_explanation
+        "chatgpt_explanation": chatgpt_explanation,
+        "ui_theme": ui_theme_data
     }
 
 def analyze_voice_by_conditions(f0_mean, mean_rms, mfcc_mean, predicted_type):
@@ -173,7 +195,7 @@ def analyze_voice_by_conditions(f0_mean, mean_rms, mfcc_mean, predicted_type):
     }
 
 
-def get_voice_explanation_from_chatgpt(predicted_type, f0_mean, mean_rms, mfcc_mean):
+async def get_voice_explanation_from_chatgpt(predicted_type, f0_mean, mean_rms, mfcc_mean):
     """
     ChatGPT API를 호출하여 목소리 유형에 대한 설명과 과학적 원리를 기반으로 한 설명을 생성합니다.
     소숫점 아래 자리를 제거하여 간결한 설명을 생성합니다.
@@ -196,15 +218,20 @@ def get_voice_explanation_from_chatgpt(predicted_type, f0_mean, mean_rms, mfcc_m
     과학적 설명은 100 토큰 이내로 작성해주세요.
     """
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",  # 사용 가능한 모델로 설정
-        messages=[
-            {"role": "system", "content": "당신은 목소리 분석 전문가입니다."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=500,
-        temperature=0.7
-    )
-
-    # API 응답에서 설명 추출
-    return response['choices'][0]['message']['content'].strip()
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {openai.api_key}",
+            },
+            json={
+                "model": "gpt-4",
+                "messages": [
+                    {"role": "system", "content": "당신은 목소리 분석 전문가입니다."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 400,
+                "temperature": 0.7
+            }
+        )
+        return response.json()['choices'][0]['message']['content'].strip()
