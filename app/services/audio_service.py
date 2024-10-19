@@ -1,10 +1,14 @@
-import os
+from select import select
 
 import numpy as np
 import librosa
 import joblib
 import pandas as pd
 import openai
+
+from ..config.database import db
+from sqlalchemy.future import select
+from app.models.models import CelebVoiceAnalysis, VoiceTypeInfo
 
 # 1. 저장된 모델 및 전처리 객체 로드
 loaded_model = joblib.load('voice_type_model.joblib')  # AI 모델 로드
@@ -13,7 +17,7 @@ loaded_gender_encoder = joblib.load('gender_encoder.joblib')
 X_columns = joblib.load('X_columns.joblib')
 type_encoder = joblib.load('type_encoder.joblib')  # 타입 인코더 추가
 
-def audio_analyze(audio_buffer, input_gender):
+def audio_analyze(audio_buffer, input_gender, input_age):
     """
     음성 파일 데이터를 분석하여 목소리 유형을 예측하고, 추가 분석을 수행하는 함수.
     """
@@ -55,7 +59,35 @@ def audio_analyze(audio_buffer, input_gender):
     voice_analysis = analyze_voice_by_conditions(f0_mean, mean_rms, mfcc_mean, predicted_type[0])
 
     # 10. ChatGPT API를 사용해 추가 설명 생성
-    chatgpt_explanation = get_voice_explanation_from_chatgpt(predicted_type[0], f0_mean, mean_rms, mfcc_mean)
+    # chatgpt_explanation = get_voice_explanation_from_chatgpt(predicted_type[0], f0_mean, mean_rms, mfcc_mean)
+
+    # 10. DB에서 분석 결과에 해당하는 voice_name과 일치하는 name 조회
+    voice_name_from_analysis = voice_analysis["voice_name"]
+
+    # SQLAlchemy 쿼리로 해당 voice_name을 가진 레코드 조회
+    query = select(CelebVoiceAnalysis).where(CelebVoiceAnalysis.voice_name == voice_name_from_analysis)
+    result = db.execute(query).scalars().all()
+
+    # 조회된 name 값들 추출
+    matching_names = [record.name for record in result]
+
+    # 11. VoiceTypeInfo 테이블에서 voice_name에 해당하는 solution1, solution2, solution3 조회
+    voice_type_query = select(VoiceTypeInfo).where(VoiceTypeInfo.voice_type == voice_name_from_analysis)
+    voice_type_result = db.execute(voice_type_query).scalars().first()
+
+    # VoiceTypeInfo가 있으면 해결책을 반환
+    if voice_type_result:
+        solutions = {
+            "solution1": voice_type_result.solution1,
+            "solution2": voice_type_result.solution2,
+            "solution3": voice_type_result.solution3
+        }
+    else:
+        solutions = {
+            "solution1": None,
+            "solution2": None,
+            "solution3": None
+        }
 
     # 10. 분석 결과 반환
     return {
@@ -63,7 +95,9 @@ def audio_analyze(audio_buffer, input_gender):
         "mean_rms": mean_rms,
         "mfcc_1_to_20": mfcc_mean,
         "final_analysis": voice_analysis,
-        "chatgpt_explanation": chatgpt_explanation
+        "matching_names": matching_names,
+        "solutions": solutions,
+        # "chatgpt_explanation": chatgpt_explanation
     }
 
 def analyze_voice_by_conditions(f0_mean, mean_rms, mfcc_mean, predicted_type):

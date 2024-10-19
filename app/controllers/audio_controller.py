@@ -2,7 +2,7 @@ import io
 from fastapi import UploadFile
 from app.services.audio_service import audio_analyze
 
-def handle_audio_upload(file: UploadFile, gender: str):
+def handle_audio_upload(file: UploadFile, gender: str, age: int):
     """
     음성 파일을 저장하지 않고, 메모리에서 바로 분석 서비스로 넘겨줍니다.
     성별을 추가적으로 입력받아 분석에 활용합니다.
@@ -14,7 +14,7 @@ def handle_audio_upload(file: UploadFile, gender: str):
     audio_buffer = io.BytesIO(audio_data)
 
     # 메모리 상의 파일 데이터와 성별을 이용해 음성 분석 수행
-    result = audio_analyze(audio_buffer, gender)
+    result = audio_analyze(audio_buffer, gender, age)
 
     # 분석 결과 반환
     return result
