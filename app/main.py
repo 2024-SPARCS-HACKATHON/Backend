@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
 from .config.database import EngineConn  # 엔진 클래스 변경
 from app.routes.audio_route import router as audio_router
 from fastapi.middleware.cors import CORSMiddleware
