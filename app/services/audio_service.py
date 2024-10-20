@@ -208,7 +208,8 @@ async def get_voice_explanation_from_chatgpt(predicted_type, f0_mean, mean_rms, 
     prompt = f"""
     당신은 음성 분석 전문가입니다. 아래 목소리 유형에 대해 설명해주세요.
     - 목소리 유형: '{predicted_type}'
-    이 목소리는 어떤 특징을 갖는지 "목소리의 특징 :"으로 요약하고, 이어서 과학적인 분석을 "과학적 원리 :"로 시작하여 작성해주세요.
+    이 목소리는 어떤 특징을 갖는지 "목소리의 특징 :"으로 요약하고, 
+    이어서 과학적인 분석을 "과학적 원리 :"로 시작하여 작성해주세요.
 
     과학적 분석은 다음의 목소리 특성에 기반해 작성해주세요:
     - 기본 주파수(f0): {f0_mean_rounded}Hz
@@ -230,7 +231,7 @@ async def get_voice_explanation_from_chatgpt(predicted_type, f0_mean, mean_rms, 
                     {"role": "system", "content": "당신은 목소리 분석 전문가입니다."},
                     {"role": "user", "content": prompt}
                 ],
-                "max_tokens": 400,
+                "max_tokens": 500,
                 "temperature": 0.7
             }
         )
